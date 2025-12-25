@@ -3,9 +3,22 @@ cmake_minimum_required(VERSION 3.10)
 # set the project name
 project(tinyECS VERSION 1.0 LANGUAGES CXX)
 
+# Fetch Embedded Template Library for development (auto-download)
+include(FetchContent)
+
+FetchContent_Declare(
+	etl
+	GIT_REPOSITORY https://github.com/ETLCPP/etl
+	GIT_TAG        20.44.2
+)
+
+FetchContent_MakeAvailable(etl)
+
 add_library(${PROJECT_NAME}
 	${CMAKE_CURRENT_SOURCE_DIR}/src/tiny_ecs.cpp
 )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE etl::etl)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -18,9 +31,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 	EXPORT_COMPILE_COMMANDS ON
 )
 
+target_compile_options(${PROJECT_NAME} PRIVATE -nostdlib)
+
 # add the executable
 add_executable(ecs_demo ${CMAKE_CURRENT_SOURCE_DIR}/src/ecs_demo.cpp)
-target_link_libraries(ecs_demo tinyECS)
+target_link_libraries(ecs_demo PRIVATE tinyECS etl::etl)
 
 set_target_properties(ecs_demo PROPERTIES
 	CXX_STANDARD 14
@@ -28,41 +43,9 @@ set_target_properties(ecs_demo PROPERTIES
 	EXPORT_COMPILE_COMMANDS ON
 )
 
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}-targets
+install(TARGETS ${PROJECT_NAME}
 	DESTINATION lib
 )
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/tiny_ecs.hpp
 	DESTINATION include
 )
-
-install(EXPORT ${PROJECT_NAME}-targets
-	FILE ${PROJECT_NAME}-targets.cmake
-	DESTINATION lib/cmake/${PROJECT_NAME}
-)
-
-include(CMakePackageConfigHelpers)
-
-configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
-	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
-	INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
-	NO_SET_AND_CHECK_MACRO
-	NO_CHECK_REQUIRED_COMPONENTS_MACRO
-)
-
-write_basic_package_version_file(
-	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
-	VERSION ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}
-	COMPATIBILITY AnyNewerVersion
-)
-
-install(FILES
-	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
-	${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
-	DESTINATION lib/cmake/${PROJECT_NAME}
-)
-
-export(EXPORT ${PROJECT_NAME}-targets
-	FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake
-)
-
-export(PACKAGE ${PROJECT_NAME})

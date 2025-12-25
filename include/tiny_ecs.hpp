@@ -1,7 +1,8 @@
 #pragma once
 
-#include <vector>
-#include <unordered_map>
+#include <etl/vector.h>
+#include <etl/unordered_map.h>
+#include <etl/utility.h>
 #include <assert.h>
 
 // Unique identifier for all entities
@@ -20,28 +21,38 @@ public:
 struct ContainerInterface
 {
     virtual void clear() = 0;
-    virtual std::size_t size() const = 0;
+    virtual size_t size() const = 0;
+    virtual size_t max_size() const = 0;
+    virtual size_t available() const = 0;
     virtual void remove(Entity e) = 0;
     virtual bool has(Entity e) const = 0;
 };
 
-// A container that stores components of type 'Component' and associated entities
-template <typename Component> // A component can be any class
-class ComponentContainer : public ContainerInterface
+// An abstract, unsized container interface to store components of type 'Component' and associated entities
+template <typename Component>
+struct ComponentContainer : public ContainerInterface
+{
+    virtual Component& get(Entity e) = 0;
+    virtual Component& insert(Entity e, Component c, bool check_for_duplicates = true) = 0;
+};
+
+// A concrete, sized container that stores components of type 'Component' and associated entities
+template <typename Component, const size_t MAX_COMPONENTS> // A component can be any class
+class SizedComponentContainer : public ComponentContainer<Component>
 {
 private:
     // The hash map from Entity -> array index.
-    std::unordered_map<unsigned int, unsigned int> map_entity_componentID; // the entity is cast to uint to be hashable.
+    etl::unordered_map<unsigned int, unsigned int, MAX_COMPONENTS> map_entity_componentID; // the entity is cast to uint to be hashable.
     bool registered = false;
 public:
     // Container of all components of type 'Component'
-    std::vector<Component> components;
+    etl::vector<Component, MAX_COMPONENTS> components;
 
     // The corresponding entities
-    std::vector<Entity> entities;
+    etl::vector<Entity, MAX_COMPONENTS> entities;
 
     // Constructor that registers the type
-    ComponentContainer()
+    SizedComponentContainer()
     {
     }
 
@@ -49,9 +60,9 @@ public:
     inline Component& insert(Entity e, Component c, bool check_for_duplicates = true)
     {
         if (check_for_duplicates) {
-            return emplace(e, std::move(c)); // the move enforces move instead of copy constructor)
+            return emplace(e, etl::move(c)); // the move enforces move instead of copy constructor)
         } else {
-            return emplace_with_duplicates(e, std::move(c)); // the move enforces move instead of copy constructor)
+            return emplace_with_duplicates(e, etl::move(c)); // the move enforces move instead of copy constructor)
         }
     }
 
@@ -60,13 +71,13 @@ public:
     Component& emplace(Entity e, Args &&... args) {
         // Usually, every entity should only have one instance of each component type
         assert(!has(e) && "Entity already contained in ECS registry");
-        return emplace_with_duplicates(e, std::forward<Args>(args)...); // the forward ensures that arguments are moved not copied
+        return emplace_with_duplicates(e, etl::forward<Args>(args)...); // the forward ensures that arguments are moved not copied
     }
 
     template<typename... Args>
     Component& emplace_with_duplicates(Entity e, Args &&... args) {
         map_entity_componentID[e] = (unsigned int)components.size();
-        components.emplace_back(std::forward<Args>(args)...); // the forward ensures that arguments are moved not copied
+        components.emplace_back(etl::forward<Args>(args)...); // the forward ensures that arguments are moved not copied
         entities.push_back(e);
         return components.back();
     }
@@ -97,7 +108,7 @@ public:
 
         // Move the last element to position cID using the move operator
         // Note, components[cID] = components.back() would trigger the copy instead of move operator
-        components[cID] = std::move(components.back());
+        components[cID] = etl::move(components.back());
         entities[cID] = entities.back(); // the entity is only a single index, copy it.
         map_entity_componentID[entities.back()] = cID;
 
@@ -117,8 +128,20 @@ public:
     }
 
     // Report the number of components of type 'Component'
-    std::size_t size() const
+    size_t size() const
     {
         return components.size();
+    }
+
+    // Report the maximum capacity of the underlying container
+    size_t max_size() const
+    {
+        return components.MAX_SIZE;
+    }
+
+    // Report the number of components that can be added to this container before it is full
+    size_t available() const
+    {
+        return components.available();
     }
 };

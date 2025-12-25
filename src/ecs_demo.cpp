@@ -1,4 +1,5 @@
 #include "tiny_ecs.hpp"
+#include <vector>
 #include <string>
 #include <iostream>
 
@@ -60,9 +61,9 @@ class RegistryECS
 
 public:
 	// Manually created list of all components this game has
-	ComponentContainer<Name> names;
-	ComponentContainer<Swims> swims;
-	ComponentContainer<Walks> walks;
+	SizedComponentContainer<Name, 10> names;
+	SizedComponentContainer<Swims, 10> swims;
+	SizedComponentContainer<Walks, 10> walks;
 
 	// constructor that adds all containers for looping over them
 	// IMPORTANT: Don't forget to add any newly added containers!
